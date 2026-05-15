@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # Base de Datos
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: user_devops
+      POSTGRES_PASSWORD: password_devops
+      POSTGRES_DB: proyecto_db
+    ports:
+      - "5432:5432"
+
+  # Backend Ventas
+  back-ventas:
+    build: ./back-Ventas_SpringBoot/Springboot-API-REST
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/proyecto_db
+
+  # Backend Despachos
+  back-despachos:
+    build: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
+    ports:
+      - "8081:8081"
+    depends_on:
+      - db
+
+  # Frontend
+  front-despacho:
+    build: ./front_despacho
+    ports:
+      - "80:80"
+    depends_on:
+      - back-despachos
