@@ -1,3 +1,15 @@
+# Llaves privadas de seguridad (AWS Academy)
 *.pem
-echo ".terraform/" >> .gitignore
-echo "terraform/.terraform/" >> .gitignore
+
+# Archivos temporales y descargables de Terraform
+.terraform/
+terraform/.terraform/
+.terraform.lock.hcl
+
+# Estado local de Terraform (no se debe subir a GitHub)
+*.tfstate
+*.tfstate.*
+
+# Ejecutables pesados (evita el bloqueo de GitHub de 100MB)
+*.exe
+terraform/terraform.exe
