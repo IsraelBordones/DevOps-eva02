@@ -38,7 +38,7 @@ jobs:
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.AWS_INSTANCE_IP }}
-        username: ec2-user
+        username: ubuntu
         key: ${{ secrets.SSH_KEY }}
         script: |
           # Detener lo que esté corriendo viejo (si aplica)
