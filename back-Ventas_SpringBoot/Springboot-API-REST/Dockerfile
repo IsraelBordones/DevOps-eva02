@@ -27,8 +27,8 @@ WORKDIR /app
 # Nota: Asegúrate de que el nombre coincida con el generado por tu pom.xml
 COPY --from=build /app/target/*.jar app.jar
 
-# Exponemos el puerto, 8081 para Despacho
-EXPOSE 8081
+# Exponemos el puerto 8080 para Ventas
+EXPOSE 8080
 
 # Comando para ejecutar la aplicación
 ENTRYPOINT ["java", "-jar", "app.jar"]

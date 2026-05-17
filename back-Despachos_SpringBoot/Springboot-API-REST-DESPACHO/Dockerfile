@@ -14,7 +14,7 @@ RUN mvn clean package -DskipTests
 
 # --- ETAPA 2: Ejecución (Runtime) ---
 # Usamos una imagen de JRE mucho más ligera y segura
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jre-alpine
 
 # BUENA PRÁCTICA: Mínimo privilegio
 # Creamos un usuario de sistema para no ejecutar la app como 'root'
@@ -27,8 +27,8 @@ WORKDIR /app
 # Nota: Asegúrate de que el nombre coincida con el generado por tu pom.xml
 COPY --from=build /app/target/*.jar app.jar
 
-# Exponemos el puerto 8080 para Ventas
-EXPOSE 8080
+# Exponemos el puerto, 8081 para Despacho
+EXPOSE 8081
 
 # Comando para ejecutar la aplicación
 ENTRYPOINT ["java", "-jar", "app.jar"]
