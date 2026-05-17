@@ -24,7 +24,7 @@ jobs:
     # 3. Construir y subir la imagen del Backend
     - name: Build and Push Backend Image
       run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/back-despachos:latest ./back-Despachos_SpringBoot
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/back-despachos:latest ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO
         docker push ${{ secrets.DOCKER_USERNAME }}/back-despachos:latest
 
     # 4. Construir y subir la imagen del Frontend
