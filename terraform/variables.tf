@@ -1,13 +1,17 @@
-variable "region" {
-  default = "us-east-1"
+variable "aws_region" {
+  description = "Región de AWS donde se desplegarán los recursos"
+  type        = string
+  default     = "us-east-1"
 }
 
 variable "instance_type" {
-  default = "t2.micro"
+  description = "Tipo de instancia EC2"
+  type        = string
+  default     = "t2.micro"
 }
 
 variable "key_name" {
-  description = "Nombre de la llave SSH en AWS Academy"
+  description = "Nombre de la llave SSH para acceder a la instancia"
   type        = string
-  default     = "vockey" 
+  default     = "vockey" # Llave por defecto en laboratorios AWS Academy
 }
