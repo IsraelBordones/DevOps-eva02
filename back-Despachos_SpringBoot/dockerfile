@@ -1,6 +1,6 @@
 # --- ETAPA 1: Compilación (Build) ---
-# Usamos una imagen con JDK y Maven para construir el proyecto
-FROM maven:3.8.5-openjdk-17-slim AS build
+# Usamos Temurin 17 con Maven para compilar de forma moderna
+FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
 
 # Definimos el directorio de trabajo
 WORKDIR /app
@@ -13,18 +13,17 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # --- ETAPA 2: Ejecución (Runtime) ---
-# Usamos una imagen de JRE mucho más ligera y segura
-FROM openjdk:17-jdk-slim
+# Usamos una imagen de JRE oficial de Temurin basada en Alpine (Ultra ligera y segura)
+FROM eclipse-temurin:17-jre-alpine
 
 # BUENA PRÁCTICA: Mínimo privilegio
-# Creamos un usuario de sistema para no ejecutar la app como 'root'
-RUN addgroup --system spring && adduser --system spring --ingroup spring
+# En Alpine el comando cambia ligeramente de 'adduser' a 'adduser -D'
+RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 
 WORKDIR /app
 
 # Copiamos solo el archivo .jar generado en la etapa anterior
-# Nota: Asegúrate de que el nombre coincida con el generado por tu pom.xml
 COPY --from=build /app/target/*.jar app.jar
 
 # Exponemos el puerto, 8081 para Despacho
