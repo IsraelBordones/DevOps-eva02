@@ -1,1 +1,3 @@
 *.pem
+echo ".terraform/" >> .gitignore
+echo "terraform/.terraform/" >> .gitignore
