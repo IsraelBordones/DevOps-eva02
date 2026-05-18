@@ -41,14 +41,14 @@ jobs:
         username: ec2-user
         key: ${{ secrets.SSH_KEY }}
         script: |
-          # Detener lo que esté corriendo viejo (si aplica)
+          
           docker stop back-app front-app || true
           docker rm back-app front-app || true
           
-          # Descargar las imágenes nuevas que acabamos de subir a Docker Hub
+          
           docker pull ${{ secrets.DOCKER_USERNAME }}/back-despachos:latest
           docker pull ${{ secrets.DOCKER_USERNAME }}/front-despacho:latest
           
-          # Volver a levantar los contenedores actualizados
+          
           docker run -d --name back-app -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/back-despachos:latest
           docker run -d --name front-app -p 8082:8082 ${{ secrets.DOCKER_USERNAME }}/front-despacho:latest
