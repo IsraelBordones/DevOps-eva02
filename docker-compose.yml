@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+
+  db:
+    image: mysql:8.0
+    container_name: db_proyecto
+    restart: always
+
+    environment:
+      MYSQL_ROOT_PASSWORD: password_devops
+      MYSQL_DATABASE: proyecto_db
+      MYSQL_USER: user_devops
+      MYSQL_PASSWORD: password_devops
+
+    ports:
+      - "3307:3306"
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uuser_devops", "-ppassword_devops"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  back-ventas:
+    image: TUUSUARIO/back-ventas:latest
+    container_name: api_ventas
+    restart: on-failure
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/proyecto_db?createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=user_devops
+      - SPRING_DATASOURCE_PASSWORD=password_devops
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver
+
+  back-despachos:
+    image: TUUSUARIO/back-despachos:latest
+    container_name: api_despachos
+    restart: on-failure
+
+    ports:
+      - "8081:8081"
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/proyecto_db?createDatabaseIfNotExist=true
+      - SPRING_DATASOURCE_USERNAME=user_devops
+      - SPRING_DATASOURCE_PASSWORD=password_devops
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver
+
+  front-despacho:
+    image: TUUSUARIO/front-despacho:latest
+    container_name: web_front
+
+    ports:
+      - "8082:80"
+
+    depends_on:
+      - back-despachos
+
+volumes:
+  mysql_data:
+
