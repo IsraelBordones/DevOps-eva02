@@ -77,6 +77,18 @@ El pipeline automatizado realiza:
 5. Conexión SSH a AWS EC2
 6. Actualización automática de contenedores
 
+---Pasos a seguir para correr pipeline
+
+1. Encender laboratorio aws
+2. Extraer de ahi las credenciales y pegarlas en la terminal repositorio /terraform
+3. aws configure en la terminal Git bash, y pegar las creadenciales del aws
+4. Ejecutar los siguientes comandos: /terraform Init /terraform Plan /Terraform apply
+5. ssh -i {ruta pem} ec2-user@{ipPublica}
+6. sudo systemctl start docker
+7. Actualizar los secretos de github (ssh key, DireccionIP_AWS)
+8. Intentar correr el pipeline en Actions
+9. Esperar checkList
+
 ---
 
 # Infraestructura AWS
