@@ -1,90 +1,157 @@
+# ==============================
+# Terraform: Infra AWS (EKS + ECR)
+# ==============================
+
+# 0) Providers
+# Define qué proveedores se usarán (en este caso AWS).
 terraform {
   required_providers {
     aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
+      source  = "hashicorp/aws" # Origen del provider
+      version = "~> 5.0"        # Rango de versión
     }
   }
 }
 
-# Configuración del Proveedor usando variables
+# 1) Configuración del provider AWS
 provider "aws" {
-  region = var.aws_region
+  region = "us-east-1" # Región donde se crea toda la infraestructura
 }
 
-# SOLUCIÓN PRO: Filtro dinámico para obtener la última AMI válida de Amazon Linux 2
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
-  }
+# 2) Rol IAM existente
+# Se asume que ya existe un rol llamado "LabRole" (Learner Lab / Academy).
+# Se usa su ARN para el cluster y node group.
+data "aws_iam_role" "labrole" {
+  name = "LabRole"
 }
 
-# Grupo de Seguridad corregido
-resource "aws_security_group" "sg_final" {
-  name        = "sg_evaluacion_v2"
-  description = "Grupo de seguridad para la aplicacion en Docker"
+# 3) Redes (VPC, Subnets, Internet Gateway, Route Tables)
+resource "aws_vpc" "eks_vpc" {
+  cidr_block           = "10.0.0.0/16"  # Rango de IPs para la VPC
+  enable_dns_support   = true            # Habilita DNS interno
+  enable_dns_hostnames = true           # Habilita hostnames
+  tags = { Name = "innovatech-vpc" }   # Etiquetas
+}
 
-  # Acceso SSH para administración e integración con GitHub Actions
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # En producción se recomienda restringir a IPs conocidas
-  }
+# Subnet pública 1 (us-east-1a)
+resource "aws_subnet" "eks_subnet_1" {
+  vpc_id                  = aws_vpc.eks_vpc.id
+  cidr_block              = "10.0.10.0/24"
+  availability_zone       = "us-east-1a"
+  map_public_ip_on_launch = true
 
-  # Acceso al Frontend de la aplicación (Puerto mapeado en tu docker-compose)
-  ingress {
-    from_port   = 8082
-    to_port     = 8082
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # Salida libre a internet para que la máquina descargue Docker y las imágenes
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
+  # Etiqueta clave para que EKS sepa dónde crear LoadBalancers públicos
   tags = {
-    Name = "sg_evaluacion"
+    Name = "innovatech-subnet-1"
+    "kubernetes.io/role/elb" = "1"
   }
 }
 
-# Instancia EC2
-resource "aws_instance" "app_server" {
-  ami                    = data.aws_ami.amazon_linux.id # Usa el ID dinámico y corregido
-  instance_type          = var.instance_type
-  key_name               = var.key_name
-  vpc_security_group_ids = [aws_security_group.sg_final.id]
+# Subnet pública 2 (us-east-1b)
+resource "aws_subnet" "eks_subnet_2" {
+  vpc_id                  = aws_vpc.eks_vpc.id
+  cidr_block              = "10.0.20.0/24"
+  availability_zone       = "us-east-1b"
+  map_public_ip_on_launch = true
 
-  # Script automatizado para instalar Docker y Docker Compose v2 al arrancar
-  user_data = <<-EOT
-    #!/bin/bash
-    yum update -y
-    yum install -y docker
-    service docker start
-    usermod -a -G docker ec2-user
-    
-    # Instalar Docker Compose v2 como plugin CLI global
-    mkdir -p /usr/local/lib/docker/cli-plugins/
-    curl -SL https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-linux-x86_64 -o /usr/local/lib/docker/cli-plugins/docker-compose
-    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-  EOT
-
+  # Etiqueta clave para EKS
   tags = {
-    Name = "Instancia-EP2-DevOps"
+    Name = "innovatech-subnet-2"
+    "kubernetes.io/role/elb" = "1"
   }
 }
 
-# Output para ver la URL/IP pública apenas termine el terraform apply
-output "url_publica" {
-  description = "IP pública de la instancia creada"
-  value       = "http://${aws_instance.app_server.public_ip}:8082"
+# Internet Gateway para salida a Internet
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.eks_vpc.id
+  tags   = { Name = "innovatech-igw" }
 }
+
+# Route table con ruta por defecto hacia el IGW
+resource "aws_route_table" "rt" {
+  vpc_id = aws_vpc.eks_vpc.id
+  route {
+    cidr_block = "0.0.0.0/0"                # Tráfico a cualquier destino
+    gateway_id = aws_internet_gateway.igw.id
+  }
+  tags = { Name = "innovatech-route-table" }
+}
+
+# Asociaciones de route table con cada subnet
+resource "aws_route_table_association" "rta_1" {
+  subnet_id      = aws_subnet.eks_subnet_1.id
+  route_table_id = aws_route_table.rt.id
+}
+
+resource "aws_route_table_association" "rta_2" {
+  subnet_id      = aws_subnet.eks_subnet_2.id
+  route_table_id = aws_route_table.rt.id
+}
+
+# 4) Clúster EKS
+resource "aws_eks_cluster" "eks" {
+  name     = "innovatech-cluster"
+  role_arn = data.aws_iam_role.labrole.arn
+
+  vpc_config {
+    # Subnets donde se desplegarán recursos del clúster
+    subnet_ids = [aws_subnet.eks_subnet_1.id, aws_subnet.eks_subnet_2.id]
+  }
+}
+
+# 5) Node group (workers) del clúster
+resource "aws_eks_node_group" "workers" {
+  cluster_name    = aws_eks_cluster.eks.name
+  node_group_name = "workers"
+  node_role_arn   = data.aws_iam_role.labrole.arn
+
+  subnet_ids = [aws_subnet.eks_subnet_1.id, aws_subnet.eks_subnet_2.id]
+
+  # Autoscaling del número de nodos
+  scaling_config {
+    desired_size = 2
+    max_size     = 3
+    min_size     = 1
+  }
+
+  # Tipo de instancia para los workers
+  instance_types = ["t3.medium"]
+  capacity_type  = "ON_DEMAND"
+}
+
+# 6) Repositorios ECR para imágenes Docker
+resource "aws_ecr_repository" "backend_ventas_repo" {
+  name = "backend-ventas"
+  image_scanning_configuration { scan_on_push = true } # Escaneo al subir
+  force_delete = true                                   # Permite borrar repo en destroy
+}
+
+resource "aws_ecr_repository" "backend_despachos_repo" {
+  name = "backend-despachos"
+  image_scanning_configuration { scan_on_push = true }
+  force_delete = true
+}
+
+resource "aws_ecr_repository" "frontend_repo" {
+  name = "frontend-app"
+  image_scanning_configuration { scan_on_push = true }
+  force_delete = true
+}
+
+# 7) Outputs (para copiar y usar en CI/CD)
+output "cluster_name" {
+  value = aws_eks_cluster.eks.name
+}
+
+output "repo_ventas_url" {
+  value = aws_ecr_repository.backend_ventas_repo.repository_url
+}
+
+output "repo_despachos_url" {
+  value = aws_ecr_repository.backend_despachos_repo.repository_url
+}
+
+output "repo_frontend_url" {
+  value = aws_ecr_repository.frontend_repo.repository_url
+}
+
